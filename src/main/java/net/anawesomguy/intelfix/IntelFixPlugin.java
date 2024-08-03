@@ -1,21 +1,23 @@
 package net.anawesomguy.intelfix;
 
 import cpw.mods.fml.common.FMLLog;
+import cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class IntelFixPlugin implements IFMLLoadingPlugin {
     public static final Logger LOGGER = Logger.getLogger("IntelFix");
+    static boolean isDeobfEnv;
 
     static {
         LOGGER.setParent(FMLLog.getLogger());
     }
 
-    static String injectedClass = "net.minecraft.client.renderer.Tessellator";
-    static String injectedMethod = "draw()I";
-
+    static String injectedClass, injectedMethod, glHelperClass, setClientTexture;
+    static boolean obfuscatedNames;
     static boolean useLegacy;
 
     @Deprecated
@@ -41,6 +43,7 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
 
     @Override
     public void injectData(Map<String, Object> map) {
+        isDeobfEnv = !(Boolean)map.get("runtimeDeobfuscationEnabled");
     }
 
     public static boolean useLegacy() {
@@ -55,27 +58,69 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         return injectedMethod;
     }
 
-    static void setInjected(boolean useLegacy, String injectedClass, String injectedMethod) {
-        if (useLegacy == IntelFixPlugin.useLegacy) {
-            if (injectedClass != null && !injectedClass.isEmpty())
-                IntelFixPlugin.injectedClass = injectedClass.trim();
-            if (injectedMethod != null && !injectedMethod.isEmpty())
-                IntelFixPlugin.injectedMethod = injectedMethod.trim();
-        } else {
-            IntelFixPlugin.useLegacy = useLegacy;
+    public static String glHelperClass() {
+        return glHelperClass;
+    }
 
-            if (injectedClass != null && !injectedClass.isEmpty())
-                IntelFixPlugin.injectedClass = injectedClass.trim();
-            else
-                IntelFixPlugin.injectedClass =
-                    useLegacy ?
-                        "net.minecraft.client.renderer.OpenGlHelper" :
-                        "net.minecraft.client.renderer.Tessellator";
+    public static String setClientTextureMethod() {
+        return setClientTexture;
+    }
 
-            if (injectedMethod != null && !injectedMethod.isEmpty())
-                IntelFixPlugin.injectedMethod = injectedMethod.trim();
+    public static boolean obfuscatedNames() {
+        return obfuscatedNames;
+    }
+
+    static void setConfigVals(boolean useLegacy, String injectedClass, String injectedMethod, String glHelperClass,
+                              String setClientTexture, boolean obfuscatedNames) {
+        IntelFixPlugin.useLegacy = useLegacy;
+        IntelFixPlugin.obfuscatedNames = obfuscatedNames;
+
+        IntelFixPlugin.injectedClass = injectedClass != null && !injectedClass.isEmpty() ?
+            injectedClass :
+            maybeUnmap(
+                useLegacy ? "net.minecraft.client.renderer.OpenGlHelper" : "net.minecraft.client.renderer.Tessellator",
+                obfuscatedNames);
+
+        if (injectedMethod != null && !injectedMethod.isEmpty())
+            IntelFixPlugin.injectedMethod = injectedMethod;
+        else {
+            if (obfuscatedNames)
+                LOGGER.severe(
+                    "Cannot set `obfuscated_names` without also specifying a method! This mod will not work properly!");
+            if (useLegacy)
+                IntelFixPlugin.injectedMethod = isDeobfEnv ? "setActiveTexture(I)V" : "func_77473_a(I)V";
             else
-                IntelFixPlugin.injectedMethod = useLegacy ? "setActiveTexture(I)V" : "draw()I";
+                IntelFixPlugin.injectedMethod = isDeobfEnv ? "draw()I" : "func_78381_a()I";
         }
+
+        IntelFixPlugin.glHelperClass = (glHelperClass != null && !glHelperClass.isEmpty() ?
+                                            glHelperClass :
+                                            maybeUnmap("net.minecraft.client.renderer.OpenGlHelper",
+                                                       obfuscatedNames)).replace('.', '/');
+
+        if (setClientTexture != null && !setClientTexture.isEmpty())
+            IntelFixPlugin.setClientTexture = setClientTexture;
+        else {
+            if (obfuscatedNames)
+                LOGGER.severe(
+                    "Cannot set `obfuscated_names` without also specifying `set_client_active`! This mod will not work properly!");
+            IntelFixPlugin.setClientTexture = isDeobfEnv ? "setClientActiveTexture" : "func_77472_b";
+        }
+
+        LOGGER.finer("Config values read, parsed, and stored!");
+        LOGGER.log(Level.FINER,
+                   "use_legacy: {0}, injected_class: {1}, gl_helper_class: {2}, set_client_texture: {3}, injected_method: {3}, obfuscated_names: {4}",
+                   new Object[]{useLegacy, IntelFixPlugin.glHelperClass, IntelFixPlugin.setClientTexture, IntelFixPlugin.injectedClass, IntelFixPlugin.injectedMethod, obfuscatedNames}
+        );
+    }
+
+    private static String maybeUnmap(String clazz, boolean obfuscatedNames) {
+        if (!isDeobfEnv && obfuscatedNames) {
+            String unmapped = FMLDeobfuscatingRemapper.INSTANCE.unmap(clazz);
+            LOGGER.log(Level.FINER, "Unmapped class \"{0}\" to \"{1}\"", new Object[]{clazz, unmapped});
+            return unmapped;
+        }
+
+        return clazz;
     }
 }

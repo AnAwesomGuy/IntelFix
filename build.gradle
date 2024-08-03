@@ -55,6 +55,7 @@ volde {
         configureEach {
             property "legacy.debugClassLoading", "true"
             property "legacy.debugClassLoadingSave", "true"
+            property "fml.log.level", "ALL"
         }
     }
 }
