@@ -109,8 +109,8 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
 
         LOGGER.finer("Config values read, parsed, and stored!");
         LOGGER.log(Level.FINER,
-                   "use_legacy: {0}, injected_class: {1}, gl_helper_class: {2}, set_client_texture: {3}, injected_method: {3}, obfuscated_names: {4}",
-                   new Object[]{useLegacy, IntelFixPlugin.glHelperClass, IntelFixPlugin.setClientTexture, IntelFixPlugin.injectedClass, IntelFixPlugin.injectedMethod, obfuscatedNames}
+                   "use_legacy: {0}, injected_class: {1}, injected_method: {2}, gl_helper_class: {3}, set_client_texture: {4}, obfuscated_names: {5}",
+                   new Object[]{useLegacy, IntelFixPlugin.injectedClass, IntelFixPlugin.injectedMethod, IntelFixPlugin.glHelperClass, IntelFixPlugin.setClientTexture, obfuscatedNames}
         );
     }
 
