@@ -1,3 +1,6 @@
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassWriter
+
 buildscript {
     repositories {
         maven { url "https://maven.aliyun.com/nexus/content/repositories/central/" } // china mirror of maven central
@@ -7,6 +10,7 @@ buildscript {
     }
     dependencies {
         classpath "agency.highlysuspect:voldeloom:2.4"
+        classpath 'org.ow2.asm:asm:9.7'
     }
 }
 
@@ -34,7 +38,14 @@ jar {
     }
 }
 
-dependencies {
+tasks.withType(JavaCompile).configureEach {
+    doLast {
+        files(outputs.files).asFileTree.filter { it.name.endsWith '.class' }.each {
+            def writer = new ClassWriter(0)
+            new ClassReader(it.bytes).accept(writer, ClassReader.SKIP_DEBUG)
+            it.bytes = writer.toByteArray()
+        }
+    }
 }
 
 processResources {

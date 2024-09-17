@@ -1,0 +1,47 @@
+name: Publish Jars
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'The name of the release'
+        required: true
+        type: string
+      release_body:
+        description: 'The description of the release'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: validate gradle wrapper
+        uses: gradle/wrapper-validation-action@v2
+      - name: setup jdk 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - id: values
+        run: |
+          echo -e "BODY=${{ inputs.release_body }}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=$( ls -p build/libs/ | grep -v / | head -1 | sed -e 's/\..*$//' )" >> $GITHUB_OUTPUT
+        # wtf did i just write up there
+      - name: create release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          release_name: ${{ inputs.release_name }}
+          body: ${{ inputs.release_body }}
+          file: build/libs/*
+          tag_name: ${{ steps.values.outputs.TAG_NAME }}
+          file_glob: true
