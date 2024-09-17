@@ -35,13 +35,13 @@ jobs:
       - id: values
         run: |
           echo -e "BODY=${{ inputs.release_body }}" >> $GITHUB_OUTPUT
-          echo "TAG_NAME=$( ls -p build/libs/ | grep -v / | head -1 | sed -e 's/\..*$//' )" >> $GITHUB_OUTPUT
+          echo "TAG=$( ls -p build/libs/ | grep -v / | head -1 | sed -e 's/\..*$//' )" >> $GITHUB_OUTPUT
         # wtf did i just write up there
       - name: create release
         uses: svenstaro/upload-release-action@v2
         with:
           release_name: ${{ inputs.release_name }}
           body: ${{ steps.values.outputs.BODY }}
-          tag_name: ${{ steps.values.outputs.TAG_NAME }}
+          tag: ${{ steps.values.outputs.TAG }}
           file: build/libs/*
           file_glob: true
