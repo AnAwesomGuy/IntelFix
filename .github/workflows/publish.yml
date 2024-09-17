@@ -41,7 +41,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           release_name: ${{ inputs.release_name }}
-          body: ${{ inputs.release_body }}
-          file: build/libs/*
+          body: ${{ steps.values.outputs.BODY }}
           tag_name: ${{ steps.values.outputs.TAG_NAME }}
+          file: build/libs/*
           file_glob: true
