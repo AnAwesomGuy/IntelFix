@@ -34,7 +34,7 @@ jobs:
         run: ./gradlew build
       - id: values
         run: |
-          echo -e "BODY=${{ inputs.release_body }}" >> $GITHUB_OUTPUT
+          echo -e "BODY=${{ inputs.release_body }}\n\n# USE THE NORMAL JAR, NOT THE `-dev` ONE!" >> $GITHUB_OUTPUT
           echo "TAG=$( ls -p build/libs/ | grep -v / | head -1 | sed -e 's/\(.*\)\..*/\1/' )" >> $GITHUB_OUTPUT
         # wtf did i just write up there
       - name: create release
