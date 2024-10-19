@@ -22,21 +22,16 @@ version = mod_version
 archivesBaseName = 'intelfix'
 group = 'net.anawesomguy.intelfix'
 
-String minecraftVersion = "1.6.4"
-String forgeVersion = "$minecraftVersion-9.11.1.1345"
-
 sourceSets {
     fake
-    main {
-        compileClasspath += sourceSets.fake.compileClasspath
-    }
+    main.compileClasspath += fake.compileClasspath
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:$minecraftVersion"
-    forge "net.minecraftforge:forge:$forgeVersion:universal"
-    mappings "net.minecraftforge:forge:$forgeVersion:src@zip"
-    compileClasspath sourceSets.fake.compileClasspath
+    var forgeVer = "$minecraft_version-$forge_version"
+    minecraft "com.mojang:minecraft:$minecraft_version"
+    forge "net.minecraftforge:forge:$forgeVer:universal"
+    mappings "net.minecraftforge:forge:$forgeVer:src@zip"
 }
 
 jar {

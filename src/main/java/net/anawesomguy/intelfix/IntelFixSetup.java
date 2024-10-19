@@ -17,22 +17,14 @@ import java.util.logging.Level;
 import static net.anawesomguy.intelfix.IntelFixPlugin.LOGGER;
 
 public final class IntelFixSetup implements IFMLCallHook {
-    private String modFile;
-    private File mcDir;
-
     @Override
     public void injectData(Map<String, Object> map) {
-        Object modFile = map.get("coremodLocation");
-        if (modFile instanceof File) // null check too
-            this.modFile = ((File)modFile).getPath();
-        else
-            this.modFile = IntelFixSetup.class.getProtectionDomain().getCodeSource().getLocation().getPath();
     }
 
     // properties: injected_class, injected_method, use_legacy
     @Override
     public Void call() {
-        LOGGER.fine("Initializing IntelFixSetup from " + modFile);
+        LOGGER.fine("Initializing IntelFixSetup from " + IntelFixPlugin.modFile);
 
         // config section below
         Properties config = new Properties();
@@ -47,7 +39,7 @@ public final class IntelFixSetup implements IFMLCallHook {
         String injectedClass = "", injectedMethod = "", glHelperClass = "", setClientTexture = "";
         boolean obfuscatedNames = false, useLegacy = false;
         try {
-            File file = new File(new File(mcDir, "config"), "INTELFIX.properties");
+            File file = IntelFixPlugin.configFile;
             if (file.exists()) {
                 config.load(new FileInputStream(file));
                 for (Entry<Object, Object> entry : ImmutableSet.copyOf(config.entrySet())) {

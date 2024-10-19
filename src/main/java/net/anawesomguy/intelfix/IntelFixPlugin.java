@@ -7,6 +7,7 @@ import cpw.mods.fml.relauncher.FMLInjectionData;
 import cpw.mods.fml.relauncher.FMLRelaunchLog;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 import net.minecraft.launchwrapper.Launch;
+import org.lwjgl.Sys;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -16,8 +17,9 @@ import java.util.logging.Logger;
 
 public final class IntelFixPlugin implements IFMLLoadingPlugin {
     public static final Logger LOGGER = Logger.getLogger("IntelFix");
-    static File mcDir;
     static boolean deobfEnv;
+    static String modFile;
+    static File configFile;
 
     static {
         LOGGER.setParent(FMLLog.getLogger());
@@ -48,76 +50,63 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         return "net.anawesomguy.intelfix.IntelFixSetup";
     }
 
+    @SuppressWarnings("JavaReflectionMemberAccess")
     @Override
     public void injectData(Map<String, Object> map) {
         Object obfEnv = map.get("runtimeDeobfuscationEnabled");
         if (obfEnv instanceof Boolean)
             deobfEnv = !(Boolean)obfEnv;
 
-        //wtf is this monstrosity (i dont even think its necessary but who cares lmao)
-        File mcDir = null;
+        Object loc = map.get("coremodLocation");
+        if (loc instanceof File) // null check too
+            modFile = ((File)loc).getPath();
+        else
+            modFile = IntelFixSetup.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+
+        /* gets config file (wtf is this monstrosity) (i dont even think its necessary but who cares lmao)
+         * flow: (only advances to next step if it fails)
+         * get `mcLocation` from map
+         * get config dir from `Loader.instance().getConfigDir()`
+         * get mc home from `Launch.minecraftHome` (only exists when using launchwrapper)
+         * get mc home from `FMLInjectionData.data()`'s 7th element
+         * get `cfgdir` from `ModLoader` class using reflection (it's private)
+         */
+        File mcDir;
         Object mcLoc = map.get("mcLocation");
         if (mcLoc instanceof File)
             mcDir = (File)mcLoc;
         else {
             try {
-                mcDir = Launch.minecraftHome;
+                configFile = new File(Loader.instance().getConfigDir(), "INTELFIX.properties");
+                return;
             } catch (NoClassDefFoundError e) {
                 try {
-                    Object data = FMLInjectionData.data()[6];
-                    if (data instanceof File) {
-                        mcDir = (File)data;
-                    }
+                    mcDir = Launch.minecraftHome;
                 } catch (NoClassDefFoundError er) {
-                } catch (RuntimeException ex) {
-                }
-            }
-
-            if (mcDir == null) {
-                label:
-                {
-                    try {
-                        Field f = Loader.class.getDeclaredField("minecraftDir");
-                        f.setAccessible(true);
-                        mcDir = (File)f.get(null);
-                        break label;
-                    } catch (NoClassDefFoundError e) {
-                    } catch (Exception e) {
-                    }
-                    try {
-                        Field f = FMLRelaunchLog.class.getDeclaredField("minecraftHome");
-                        f.setAccessible(true);
-                        mcDir = (File)f.get(null);
-                        break label;
-                    } catch (NoClassDefFoundError e) {
-                    } catch (Exception e) {
-                    }
-                    Class<?> c;
-                    try {
-                        c = Class.forName("ModLoader");
-                    } catch (ClassNotFoundException e) {
-                        c = null;
-                    }
-                    if (c != null) {
-                        Field f;
+                    label:
+                    {
                         try {
-                            f = c.getDeclaredField("modDir");
-                            mcDir = ((File)f.get(null)).getParentFile();
-                            break label;
-                        } catch (Exception e) {
-                            try {
-                                f = c.getDeclaredField("cfgdir");
-                                mcDir = ((File)f.get(null)).getParentFile();
+                            Object data = FMLInjectionData.data()[6];
+                            if (data instanceof File) {
+                                mcDir = (File)data;
                                 break label;
-                            } catch (Exception ex) {
                             }
+                        } catch (NoClassDefFoundError err) {
+                        } catch (RuntimeException ex) {
+                        }
+                        try {
+                            Class<?> c = Class.forName("ModLoader");
+                            Field f = c.getDeclaredField("cfgdir");
+                            configFile = new File((File)f.get(null), "INTELFIX.properties");
+                            return;
+                        } catch (Exception ex) {
+                            mcDir = new File(System.getProperty("user.dir", "."));
                         }
                     }
-                    mcDir = new File(".");
                 }
             }
         }
-        IntelFixPlugin.mcDir = mcDir;
+        IntelFixPlugin.configFile = new File(new File(mcDir, "config"), "INTELFIX.properties");
     }
 
     public static boolean useLegacy() {
