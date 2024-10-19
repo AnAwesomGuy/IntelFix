@@ -22,12 +22,11 @@ public final class IntelFixSetup implements IFMLCallHook {
 
     @Override
     public void injectData(Map<String, Object> map) {
-        mcDir = (File)map.get("mcLocation");
-        Object file = map.get("coremodLocation");
-        if (file instanceof File) // null check too
-            modFile = ((File)file).getPath();
+        Object modFile = map.get("coremodLocation");
+        if (modFile instanceof File) // null check too
+            this.modFile = ((File)modFile).getPath();
         else
-            modFile = IntelFixSetup.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+            this.modFile = IntelFixSetup.class.getProtectionDomain().getCodeSource().getLocation().getPath();
     }
 
     // properties: injected_class, injected_method, use_legacy
@@ -35,6 +34,7 @@ public final class IntelFixSetup implements IFMLCallHook {
     public Void call() {
         LOGGER.fine("Initializing IntelFixSetup from " + modFile);
 
+        // config section below
         Properties config = new Properties();
         String comment = " ONLY CHANGE THESE IF YOU KNOW WHAT YOU'RE DOING!\n\n" +
                          " injected_class: the class to inject the fix into\n" +
@@ -86,9 +86,7 @@ public final class IntelFixSetup implements IFMLCallHook {
                 }
 
                 boolean modified = false;
-                //noinspection ForLoopReplaceableByForEach
-                for (int i = 0; i < configVals.size(); i++) {
-                    String val = configVals.get(i);
+                for (String val : configVals) {
                     if (val != null) {
                         LOGGER.log(Level.WARNING, "Missing config value \"{0}\", replacing with defaults!", val);
                         config.put(val, val.equals("use_legacy") || val.equals("obfuscated_names") ? "false" : "");

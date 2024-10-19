@@ -3,7 +3,6 @@ import org.objectweb.asm.ClassWriter
 
 buildscript {
     repositories {
-        maven { url "https://maven.aliyun.com/nexus/content/repositories/central/" } // china mirror of maven central
         mavenCentral()
         maven { url "https://maven.fabricmc.net" }
         maven { url "https://repo.sleeping.town" }
@@ -26,10 +25,18 @@ group = 'net.anawesomguy.intelfix'
 String minecraftVersion = "1.6.4"
 String forgeVersion = "$minecraftVersion-9.11.1.1345"
 
+sourceSets {
+    fake
+    main {
+        compileClasspath += sourceSets.fake.compileClasspath
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:$minecraftVersion"
     forge "net.minecraftforge:forge:$forgeVersion:universal"
     mappings "net.minecraftforge:forge:$forgeVersion:src@zip"
+    compileClasspath sourceSets.fake.compileClasspath
 }
 
 jar {
