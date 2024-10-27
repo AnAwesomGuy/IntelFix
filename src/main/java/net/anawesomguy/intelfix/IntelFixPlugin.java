@@ -4,10 +4,8 @@ import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper;
 import cpw.mods.fml.relauncher.FMLInjectionData;
-import cpw.mods.fml.relauncher.FMLRelaunchLog;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 import net.minecraft.launchwrapper.Launch;
-import org.lwjgl.Sys;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -37,7 +35,7 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
 
     @Override
     public String[] getASMTransformerClass() {
-        return new String[]{"net.anawesomguy.intelfix.IntelFixPatcher"};
+        return new String[]{"net.anawesomguy.intelfix.IntelFixPatcher$LW"};
     }
 
     @Override
@@ -50,8 +48,8 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         return "net.anawesomguy.intelfix.IntelFixSetup";
     }
 
-    @SuppressWarnings("JavaReflectionMemberAccess")
     @Override
+    @SuppressWarnings("JavaReflectionMemberAccess")
     public void injectData(Map<String, Object> map) {
         Object obfEnv = map.get("runtimeDeobfuscationEnabled");
         if (obfEnv instanceof Boolean)
@@ -61,9 +59,9 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         if (loc instanceof File) // null check too
             modFile = ((File)loc).getPath();
         else
-            modFile = IntelFixSetup.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+            modFile = IntelFix.class.getProtectionDomain().getCodeSource().getLocation().getPath();
 
-        /* gets config file (wtf is this monstrosity) (i dont even think its necessary but who cares lmao)
+        /* gets config file location (wtf is this monstrosity) (i dont even think its necessary but who cares lmao)
          * flow: (only advances to next step if it fails)
          * get `mcLocation` from map
          * get config dir from `Loader.instance().getConfigDir()`
@@ -149,7 +147,7 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         else {
             if (obfuscatedNames)
                 LOGGER.severe(
-                    "Cannot set `obfuscated_names` without also specifying a method! This mod will not work properly!");
+                    "Cannot set `obfuscated_names` without also specifying a method! This mod will not function!");
             if (useLegacy)
                 IntelFixPlugin.injectedMethod = deobfEnv ? "setActiveTexture(I)V" : "func_77473_a(I)V";
             else
@@ -165,16 +163,14 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
             IntelFixPlugin.setClientTexture = setClientTexture;
         else {
             if (obfuscatedNames)
-                LOGGER.severe(
-                    "Cannot set `obfuscated_names` without also specifying `set_client_active`! This mod will not work properly!");
+                LOGGER.severe("Cannot set `obfuscated_names` without also specifying `set_client_texture`! This mod will not function!");
             IntelFixPlugin.setClientTexture = deobfEnv ? "setClientActiveTexture" : "func_77472_b";
         }
 
         LOGGER.finer("Config values read, parsed, and stored!");
         LOGGER.log(Level.FINER,
                    "use_legacy: {0}, injected_class: {1}, injected_method: {2}, gl_helper_class: {3}, set_client_texture: {4}, obfuscated_names: {5}",
-                   new Object[]{useLegacy, IntelFixPlugin.injectedClass, IntelFixPlugin.injectedMethod, IntelFixPlugin.glHelperClass, IntelFixPlugin.setClientTexture, obfuscatedNames}
-        );
+                   new Object[]{useLegacy, IntelFixPlugin.injectedClass, IntelFixPlugin.injectedMethod, IntelFixPlugin.glHelperClass, IntelFixPlugin.setClientTexture, obfuscatedNames});
     }
 
     private static String maybeUnmap(String clazz, boolean obfuscatedNames) {

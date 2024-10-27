@@ -24,7 +24,6 @@ group = 'net.anawesomguy.intelfix'
 
 sourceSets {
     fake
-    main.compileClasspath += fake.compileClasspath
 }
 
 dependencies {
@@ -32,12 +31,8 @@ dependencies {
     minecraft "com.mojang:minecraft:$minecraft_version"
     forge "net.minecraftforge:forge:$forgeVer:universal"
     mappings "net.minecraftforge:forge:$forgeVer:src@zip"
-}
 
-jar {
-    manifest {
-        attributes('FMLCorePlugin': 'net.anawesomguy.intelfix.IntelFixPlugin')
-    }
+    compileOnly(sourceSets.fake.compileClasspath + sourceSets.fake.output)
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -65,10 +60,21 @@ processResources {
 
 volde {
     runs {
-        configureEach {
+        clientDebug {
+            client()
             property "legacy.debugClassLoading", "true"
             property "legacy.debugClassLoadingSave", "true"
-            property "fml.log.level", "ALL"
+        }
+
+        serverDebug {
+            server()
+            property "legacy.debugClassLoading", "true"
+            property "legacy.debugClassLoadingSave", "true"
+        }
+
+        configureEach {
+            property "fml.log.level", "FINER"
+            property "fml.coreMods.load", 'net.anawesomguy.intelfix.IntelFixPlugin'
         }
     }
 }

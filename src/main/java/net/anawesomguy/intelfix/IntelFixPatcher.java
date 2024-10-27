@@ -14,7 +14,7 @@ import static net.anawesomguy.intelfix.IntelFixPlugin.*;
 
 // https://www.minecraftforum.net/forums/mapping-and-modding-java-edition/minecraft-mods/1294926-themastercavers-world?page=13#c294
 public final class IntelFixPatcher {
-    public static byte[] patch(String name, byte[] bytes) {
+    public static byte[] patch(String name, byte[] bytes, boolean obfNames) {
         ClassWriter writer = new ClassWriter(0);
         boolean[] patched = {false};
         ClassVisitor visitor = new PatchCV(writer, patched, name, obfuscatedNames);
@@ -35,7 +35,7 @@ public final class IntelFixPatcher {
         public byte[] transform(String clsName, String deobfName, byte[] bytes) {
             if (bytes == null || !(obfuscatedNames ? clsName : deobfName).equals(injectedClass))
                 return bytes;
-            return patch(injectedClass, bytes);
+            return patch(injectedClass, bytes, obfuscatedNames);
         }
     }
 
@@ -43,7 +43,9 @@ public final class IntelFixPatcher {
     public static class Old implements cpw.mods.fml.relauncher.IClassTransformer {
         @Override
         public byte[] transform(String name, byte[] bytes) {
-            return new byte[0];
+            if (bytes == null || !name.equals(injectedClass))
+                return bytes;
+            return patch(name, bytes, false);
         }
     }
 
@@ -55,7 +57,9 @@ public final class IntelFixPatcher {
 
         @Override
         public byte[] transform(ClassLoader cl, String name, Class<?> cls, ProtectionDomain pd, byte[] bytes) {
-            return ;
+            if (bytes == null || !name.equals(injectedClass))
+                return bytes;
+            return patch(name, bytes, false);
         }
     }
 

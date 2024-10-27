@@ -21,7 +21,7 @@ public final class IntelFixSetup implements IFMLCallHook {
     public void injectData(Map<String, Object> map) {
     }
 
-    // properties: injected_class, injected_method, use_legacy
+    // properties: injected_class, injected_method, gl_helper_class, set_client_texture, obfuscated_names, use_legacy
     @Override
     public Void call() {
         LOGGER.fine("Initializing IntelFixSetup from " + IntelFixPlugin.modFile);
@@ -32,7 +32,7 @@ public final class IntelFixSetup implements IFMLCallHook {
                          " injected_class: the class to inject the fix into\n" +
                          " injected_method: the name and descriptor of the method to inject the fix into\n" +
                          " gl_helper_class: the name of the `OpenGLHelper class\n" +
-                         " set_client_texture: the name withOUT descriptor of the `OpenGlHelper.setClientActiveTexture(I)V` method\n" +
+                         " set_client_texture: the name WITHOUT descriptor of the `OpenGlHelper.setClientActiveTexture(I)V` method\n" +
                          " obfuscated_names: if the above names are obfuscated and unmapped\n" +
                          " use_legacy: whether the legacy fix is used (inject into `OpenGlHelper.setActiveTexture` instead of `Tessellator#draw`)\n";
         List<String> configVals = Arrays.asList("injected_class", "injected_method", "gl_helper_class", "set_client_texture", "obfuscated_names", "use_legacy");
