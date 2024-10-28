@@ -15,14 +15,19 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class IntelFix {
+    public static final class Names {
+        private Names() {
+        }
+    }
+
     public static final Logger LOGGER = Logger.getLogger("IntelFix");
 
     static {
-        init:
+        level: // log level is either configured by fml or through the property `intelfix.loglevel`
         {
             try {
                 LOGGER.setParent(FMLLog.getLogger());
-                break init;
+                break level;
             } catch (NoClassDefFoundError e) {
             } catch (NoSuchMethodError e) {
             }
@@ -34,10 +39,31 @@ public final class IntelFix {
             }
             LOGGER.setLevel(level);
         }
+
+        // IClassTransformer -> old fml
+        // IFMLLoadingPlugin -> "new" fml
+        // neither -> no fml
+        boolean isFML, oldFML;
+        try {
+            Class.forName("cpw.mods.fml.relauncher.IClassTransformer");
+            isFML = true;
+            oldFML = true;
+        } catch (ClassNotFoundException e) {
+            oldFML = false;
+            try {
+                Class.forName("cpw.mods.fml.relauncher.IFMLLoadingPlugin");
+                isFML = true;
+            } catch (ClassNotFoundException ex) {
+                isFML = false;
+            }
+        }
+        IntelFix.isFML = isFML;
+        IntelFix.oldFML = oldFML;
     }
 
     static File configFile;
     public static boolean isFML;
+    public static boolean oldFML;
     static boolean deobfEnv;
     static String modFile;
 
@@ -52,7 +78,7 @@ public final class IntelFix {
     static void loadConfig() {
         LOGGER.fine("Initializing IntelFixSetup from " + modFile);
 
-        // read config
+        // read config (honestly even i kinda forgot how this works but if it works, it works. never touching this again lol.)
         Properties config = new Properties();
         String comment = " ONLY CHANGE THESE IF YOU KNOW WHAT YOU'RE DOING!\n\n" +
                          " injected_class: the class to inject the fix into\n" +
@@ -65,7 +91,8 @@ public final class IntelFix {
             "injected_class", "injected_method", "gl_helper_class",
             "set_client_texture", "obfuscated_names", "use_legacy");
         String injectedClass = "", injectedMethod = "", glHelperClass = "", setClientTexture = "";
-        boolean obfuscatedNames = false, useLegacy = false;
+        Boolean obfuscatedNames = null;
+        boolean useLegacy = false;
         try {
             File file = configFile;
             if (file.exists()) {
@@ -130,41 +157,48 @@ public final class IntelFix {
                                      "\", will use defaults!", e);
         }
 
-        // set config values
+        // set config values (adjusting to the defaults)
         IntelFix.useLegacy = useLegacy;
-        IntelFix.obfuscatedNames = obfuscatedNames;
-        IntelFix.injectedClass = !injectedClass.isEmpty() ?
-            injectedClass :
-            maybeUnmap(
-                useLegacy ? "net.minecraft.client.renderer.OpenGlHelper" : "net.minecraft.client.renderer.Tessellator",
-                obfuscatedNames);
 
-        if (!injectedMethod.isEmpty())
-            IntelFix.injectedMethod = injectedMethod;
-        else {
-            if (obfuscatedNames)
+        boolean unboxed;
+        if (obfuscatedNames == null) {
+            try {
+                Class.forName("cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper");
+                unboxed = false;
+            } catch (ClassNotFoundException e) {
+                unboxed = true;
+            }
+        } else
+            unboxed = obfuscatedNames;
+        IntelFix.obfuscatedNames = unboxed;
+
+        IntelFix.glHelperClass = (glHelperClass.isEmpty() ?
+                                      maybeUnmap("net.minecraft.client.renderer.OpenGlHelper", unboxed) :
+                                      glHelperClass
+        ).replace('.', '/');
+
+        IntelFix.injectedClass = injectedClass.isEmpty() ?
+            (useLegacy ? IntelFix.glHelperClass : maybeUnmap("net.minecraft.client.renderer.Tessellator", unboxed)) :
+            injectedClass;
+
+        if (injectedMethod.isEmpty()) {
+            if (unboxed)
                 LOGGER.severe(
                     "Cannot set `obfuscated_names` without also specifying a method! This mod will not function!");
             if (useLegacy)
-                IntelFix.injectedMethod = deobfEnv ? "setActiveTexture(I)V" : "func_77473_a(I)V";
+                injectedMethod = deobfEnv ? "setActiveTexture(I)V" : "func_77473_a(I)V";
             else
-                IntelFix.injectedMethod = deobfEnv ? "draw()I" : "func_78381_a()I";
+                injectedMethod = deobfEnv ? "draw()I" : "func_78381_a()I";
         }
+        IntelFix.injectedMethod = injectedMethod;
 
-        IntelFix.glHelperClass = (
-            !glHelperClass.isEmpty() ?
-                glHelperClass :
-                maybeUnmap("net.minecraft.client.renderer.OpenGlHelper", obfuscatedNames)
-        ).replace('.', '/');
-
-        if (!setClientTexture.isEmpty())
-            IntelFix.setClientTexture = setClientTexture;
-        else {
-            if (obfuscatedNames)
+        if (setClientTexture.isEmpty()) {
+            if (unboxed)
                 LOGGER.severe(
                     "Cannot set `obfuscated_names` without also specifying `set_client_texture`! This mod will not function!");
-            IntelFix.setClientTexture = deobfEnv ? "setClientActiveTexture" : "func_77472_b";
+            setClientTexture = deobfEnv ? "setClientActiveTexture" : "func_77472_b";
         }
+        IntelFix.setClientTexture = setClientTexture;
 
         LOGGER.finer("Config values read, parsed, and stored!");
         LOGGER.log(Level.FINER,
@@ -172,37 +206,13 @@ public final class IntelFix {
                    new Object[]{useLegacy, IntelFix.injectedClass, IntelFix.injectedMethod, IntelFix.glHelperClass, IntelFix.setClientTexture, obfuscatedNames});
     }
 
-    public static String injectedClass() {
-        return injectedClass;
-    }
-
-    public static String injectedMethod() {
-        return injectedMethod;
-    }
-
-    public static String glHelperClass() {
-        return glHelperClass;
-    }
-
-    public static String setClientTexture() {
-        return setClientTexture;
-    }
-
-    public static boolean obfuscatedNames() {
-        return obfuscatedNames;
-    }
-
-    public static boolean useLegacy() {
-        return useLegacy;
-    }
-
-    private static boolean parseBool(String val) {
+    private static Boolean parseBool(String val) {
         if ("true".equalsIgnoreCase(val))
-            return true;
+            return Boolean.TRUE;
 
         if (!val.isEmpty() && !"false".equalsIgnoreCase(val))
             LOGGER.log(Level.INFO, "Parsing weird boolean value \"{0}\" as false!", val);
-        return false;
+        return Boolean.FALSE;
     }
 
     private static String maybeUnmap(String clazz, boolean obfuscatedNames) {
@@ -214,4 +224,15 @@ public final class IntelFix {
 
         return clazz;
     }
+
+    //region // getters
+    //@formatter:off
+    public static String injectedClass() { return injectedClass; }
+    public static String injectedMethod() { return injectedMethod; }
+    public static String glHelperClass() { return glHelperClass; }
+    public static String setClientTexture() { return setClientTexture; }
+    public static boolean obfuscatedNames() { return obfuscatedNames; }
+    public static boolean useLegacy() { return useLegacy; }
+    //@formatter:on
+    //endregion
 }

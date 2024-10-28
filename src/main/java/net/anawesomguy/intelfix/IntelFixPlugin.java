@@ -19,7 +19,8 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
 
     @Override
     public String[] getASMTransformerClass() {
-        return new String[]{"net.anawesomguy.intelfix.IntelFixPatcher$LW"};
+        return new String[]{
+            oldFML ? "net.anawesomguy.intelfix.IntelFixPatcher$Old" : "net.anawesomguy.intelfix.IntelFixPatcher$LW"};
     }
 
     @Override
