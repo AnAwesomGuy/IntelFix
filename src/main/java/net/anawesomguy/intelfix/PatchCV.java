@@ -7,9 +7,7 @@ import org.objectweb.asm.Opcodes;
 
 import java.util.logging.Level;
 
-import static net.anawesomguy.intelfix.IntelFixPlugin.*;
-
-public class PatchCV extends ClassVisitor {
+class PatchCV extends ClassVisitor {
     final boolean[] patch;
     final String cls;
     final boolean isObf;
@@ -31,11 +29,11 @@ public class PatchCV extends ClassVisitor {
                 method = name.concat(desc);
             else {
                 method = FMLDeobfuscatingRemapper.INSTANCE.mapMethodName(cls, name, desc).concat(desc);
-                LOGGER.log(Level.FINER, "Remapped \"{0}{1}\" in \"{2}\" to \"{3}\"",
-                           new Object[]{name, desc, cls, method});
+                IntelFix.LOGGER.log(Level.FINER, "Remapped \"{0}{1}\" in \"{2}\" to \"{3}\"",
+                                    new Object[]{name, desc, cls, method});
             }
 
-            if (method.equals(injectedMethod))
+            if (method.equals(IntelFix.injectedMethod))
                 return new PatchMV(visitor, patch, method);
         }
 

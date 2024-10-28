@@ -10,7 +10,7 @@ import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.logging.Level;
 
-import static net.anawesomguy.intelfix.IntelFixPlugin.*;
+import static net.anawesomguy.intelfix.IntelFix.*;
 
 // https://www.minecraftforum.net/forums/mapping-and-modding-java-edition/minecraft-mods/1294926-themastercavers-world?page=13#c294
 public final class IntelFixPatcher {

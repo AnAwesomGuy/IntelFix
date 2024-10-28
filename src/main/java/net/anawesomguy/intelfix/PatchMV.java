@@ -7,10 +7,6 @@ import org.objectweb.asm.Opcodes;
 
 import java.util.logging.Level;
 
-import static net.anawesomguy.intelfix.IntelFixPlugin.*;
-import static org.objectweb.asm.Opcodes.ILOAD;
-import static org.objectweb.asm.Opcodes.INVOKESTATIC;
-
 class PatchMV extends MethodVisitor {
     final boolean[] patch;
     final String mth;
@@ -24,13 +20,13 @@ class PatchMV extends MethodVisitor {
     @Override
     public void visitCode() {
         super.visitCode();
-        LOGGER.log(Level.FINE, "Injecting patch into \"{0}\"", mth);
+        IntelFix.LOGGER.log(Level.FINE, "Injecting patch into \"{0}\"", mth);
         patch[0] = true;
         mv.visitLabel(new Label());
-        if (useLegacy)
-            mv.visitVarInsn(ILOAD, 0);
+        if (IntelFix.useLegacy)
+            mv.visitVarInsn(Opcodes.ILOAD, 0);
         else
             mv.visitLdcInsn(GL13.GL_TEXTURE0);
-        mv.visitMethodInsn(INVOKESTATIC, glHelperClass, setClientTexture, "(I)V");
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, IntelFix.glHelperClass, IntelFix.setClientTexture, "(I)V");
     }
 }

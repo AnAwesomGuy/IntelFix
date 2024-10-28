@@ -45,6 +45,11 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
+jar.manifest.attributes([
+        "FMLCorePlugin": 'net.anawesomguy.intelfix.IntelFixPlugin',
+        "Premain-Class`": 'net.anawesomguy.intelfix.IntelFixPatcher$JA'
+])
+
 processResources {
     inputs.property "version", project.version
 
