@@ -85,7 +85,7 @@ public final class IntelFix {
                          " injected_method: the name and descriptor of the method to inject the fix into\n" +
                          " gl_helper_class: the name of the `OpenGLHelper class\n" +
                          " set_client_texture: the name WITHOUT descriptor of the `OpenGlHelper.setClientActiveTexture(I)V` method\n" +
-                         " obfuscated_names: if the above names are obfuscated and unmapped\n" +
+                         " obfuscated_names: if the above names are obfuscated and unmapped (always false if using FML < 5 or the Java agent)\n" +
                          " use_legacy: whether the legacy fix is used (inject into `OpenGlHelper.setActiveTexture` instead of `Tessellator#draw`)\n";
         List<String> configVals = Arrays.asList(
             "injected_class", "injected_method", "gl_helper_class",
@@ -137,7 +137,7 @@ public final class IntelFix {
                 for (String val : configVals)
                     if (val != null) {
                         LOGGER.log(Level.WARNING, "Missing config value \"{0}\", replacing with defaults!", val);
-                        config.put(val, val.equals("use_legacy") || val.equals("obfuscated_names") ? "false" : "");
+                        config.put(val, val.equals("use_legacy") ? "false" : "");
                         modified = true;
                     }
                 if (modified)
@@ -148,8 +148,8 @@ public final class IntelFix {
                 config.setProperty("injected_method", "");
                 config.setProperty("gl_helper_class", "");
                 config.setProperty("set_client_texture", "");
+                config.setProperty("obfuscated_names", "");
                 config.setProperty("use_legacy", "false");
-                config.setProperty("obfuscated_names", "false");
                 config.store(new FileWriter(file), comment);
             }
         } catch (IOException e) {
@@ -160,29 +160,31 @@ public final class IntelFix {
         // set config values (adjusting to the defaults)
         IntelFix.useLegacy = useLegacy;
 
-        boolean unboxed;
-        if (obfuscatedNames == null) {
-            try {
-                Class.forName("cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper");
-                unboxed = false;
-            } catch (ClassNotFoundException e) {
-                unboxed = true;
-            }
-        } else
-            unboxed = obfuscatedNames;
-        IntelFix.obfuscatedNames = unboxed;
+        boolean obfNames;
+        try {
+            Class.forName("cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper");
+            if (obfuscatedNames == null)
+                obfNames = false;
+            else
+                obfNames = obfuscatedNames;
+        } catch (ClassNotFoundException e) {
+            obfNames = true;
+            if (Boolean.FALSE.equals(obfuscatedNames)) // null-safe !obfuscatedNames
+                LOGGER.warning("Ignoring `obfuscated_names` set through config!");
+        }
+        IntelFix.obfuscatedNames = obfNames;
 
         IntelFix.glHelperClass = (glHelperClass.isEmpty() ?
-                                      maybeUnmap("net.minecraft.client.renderer.OpenGlHelper", unboxed) :
+                                      maybeUnmap("net.minecraft.client.renderer.OpenGlHelper", obfNames) :
                                       glHelperClass
         ).replace('.', '/');
 
         IntelFix.injectedClass = injectedClass.isEmpty() ?
-            (useLegacy ? IntelFix.glHelperClass : maybeUnmap("net.minecraft.client.renderer.Tessellator", unboxed)) :
+            (useLegacy ? IntelFix.glHelperClass : maybeUnmap("net.minecraft.client.renderer.Tessellator", obfNames)) :
             injectedClass;
 
         if (injectedMethod.isEmpty()) {
-            if (unboxed)
+            if (obfNames)
                 LOGGER.severe(
                     "Cannot set `obfuscated_names` without also specifying a method! This mod will not function!");
             if (useLegacy)
@@ -193,7 +195,7 @@ public final class IntelFix {
         IntelFix.injectedMethod = injectedMethod;
 
         if (setClientTexture.isEmpty()) {
-            if (unboxed)
+            if (obfNames)
                 LOGGER.severe(
                     "Cannot set `obfuscated_names` without also specifying `set_client_texture`! This mod will not function!");
             setClientTexture = deobfEnv ? "setClientActiveTexture" : "func_77472_b";
