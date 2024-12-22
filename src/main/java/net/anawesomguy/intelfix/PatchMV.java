@@ -18,7 +18,7 @@ class PatchMV extends MethodVisitor {
     }
 
     @Override
-    public void visitCode() {
+    public void visitEnd() {
         super.visitCode();
         IntelFix.LOGGER.log(Level.FINE, "Injecting patch into \"{0}\"", mth);
         patch[0] = true;

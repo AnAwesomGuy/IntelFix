@@ -1,9 +1,6 @@
 package net.anawesomguy.intelfix;
 
-import cpw.mods.fml.common.Loader;
-import cpw.mods.fml.relauncher.FMLInjectionData;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
-import net.minecraft.launchwrapper.Launch;
 
 import java.io.File;
 import java.util.Map;
@@ -20,7 +17,9 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
     @Override
     public String[] getASMTransformerClass() {
         return new String[]{
-            oldFML ? "net.anawesomguy.intelfix.IntelFixPatcher$Old" : "net.anawesomguy.intelfix.IntelFixPatcher$LW"};
+            FMLType.CURRENT == FMLType.OLD_FML ?
+                "net.anawesomguy.intelfix.IntelFixPatcher$Old" :
+                "net.anawesomguy.intelfix.IntelFixPatcher$LW"};
     }
 
     @Override
@@ -36,50 +35,15 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
     @Override
     public void injectData(Map<String, Object> map) {
         Object obfEnv = map.get("runtimeDeobfuscationEnabled");
-        if (obfEnv instanceof Boolean)
+        if (obfEnv instanceof Boolean) // null check too
             deobfEnv = !(Boolean)obfEnv;
 
         Object loc = map.get("coremodLocation");
         if (loc instanceof File) // null check too
             modFile = ((File)loc).getPath();
-        else
-            modFile = IntelFix.class.getProtectionDomain().getCodeSource().getLocation().getPath();
 
-        /* gets config file location (wtf is this monstrosity) (i dont even think its necessary but who cares lmao)
-         * flow: (only advances to next step if it fails)
-         * get `mcLocation` from map
-         * get config dir from `Loader.instance().getConfigDir()`
-         * get mc home from `Launch.minecraftHome` (only exists when using launchwrapper)
-         * get mc home from `FMLInjectionData.data()`'s 7th element
-         */
-        File mcDir;
         Object mcLoc = map.get("mcLocation");
-        if (mcLoc instanceof File)
-            mcDir = (File)mcLoc;
-        else {
-            try {
-                configFile = new File(Loader.instance().getConfigDir(), "INTELFIX.properties");
-                return;
-            } catch (NoClassDefFoundError e) {
-                try {
-                    mcDir = Launch.minecraftHome;
-                } catch (NoClassDefFoundError er) {
-                    label:
-                    {
-                        try {
-                            Object data = FMLInjectionData.data()[6];
-                            if (data instanceof File) {
-                                mcDir = (File)data;
-                                break label;
-                            }
-                        } catch (NoClassDefFoundError err) {
-                        } catch (RuntimeException ex) {
-                        }
-                        mcDir = new File(System.getProperty("user.dir", "."));
-                    }
-                }
-            }
-        }
-        configFile = new File(new File(mcDir, "config"), "INTELFIX.properties");
+        if (mcLoc instanceof File) // null check too
+            configFile = new File(new File((File)mcLoc, "config"), "INTELFIX.properties");
     }
 }
