@@ -45,9 +45,11 @@ dependencies {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs << '-g:none'
-    options.compilerArgs << '-Xlint:-options'
-    options.release = 6
+    options.with {
+        compilerArgs << '-g:none'
+        compilerArgs << '-Xlint:-options'
+        release = 6
+    }
 }
 
 jar {

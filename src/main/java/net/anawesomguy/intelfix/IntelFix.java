@@ -34,6 +34,8 @@ public final class IntelFix {
             }
             LOGGER.setLevel(level);
         }
+
+        loadConfig();
     }
 
     static File configFile;
@@ -197,36 +199,38 @@ public final class IntelFix {
          * get mc home from `Launch.minecraftHome` (only exists when using launchwrapper)
          * get mc home from `FMLInjectionData.data()`'s 7th element
          */
-        File mcDir;
         try {
             return new File(Loader.instance().getConfigDir(), "INTELFIX.properties");
         } catch (LinkageError e) {
-            try {
-                @SuppressWarnings("JavaReflectionMemberAccess")
-                Field f = Class.forName("ModLoader").getField("cfgdir");
-                f.setAccessible(true);
-                return new File((File)f.get(null), "INTELFIX.properties");
-            } catch (ClassNotFoundException ex) {
-            } catch (NoSuchFieldException ex) {
-            } catch (IllegalAccessException ex) {
-            } catch (RuntimeException ex) {
-            }
-            try {
-                mcDir = Launch.minecraftHome;
-            } catch (LinkageError er) {
-                label:
-                {
-                    try {
-                        Object data = FMLInjectionData.data()[6];
-                        if (data instanceof File) {
-                            mcDir = (File)data;
-                            break label;
-                        }
-                    } catch (LinkageError err) {
-                    } catch (RuntimeException ex) {
+        } catch (NullPointerException e) { // occurs when run too early
+        }
+
+        File mcDir;
+        try {
+            @SuppressWarnings("JavaReflectionMemberAccess")
+            Field f = Class.forName("ModLoader").getField("cfgdir");
+            f.setAccessible(true);
+            return new File((File)f.get(null), "INTELFIX.properties");
+        } catch (ClassNotFoundException ex) {
+        } catch (NoSuchFieldException ex) {
+        } catch (IllegalAccessException ex) {
+        } catch (RuntimeException ex) {
+        }
+        try {
+            mcDir = Launch.minecraftHome;
+        } catch (LinkageError er) {
+            label:
+            {
+                try {
+                    Object data = FMLInjectionData.data()[6];
+                    if (data instanceof File) {
+                        mcDir = (File)data;
+                        break label;
                     }
-                    mcDir = new File(System.getProperty("user.dir", "."));
+                } catch (LinkageError err) {
+                } catch (RuntimeException ex) {
                 }
+                mcDir = new File(System.getProperty("user.dir", "."));
             }
         }
         return new File(new File(mcDir, "config"), "INTELFIX.properties");

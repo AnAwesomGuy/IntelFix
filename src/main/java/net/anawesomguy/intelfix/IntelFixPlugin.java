@@ -8,6 +8,11 @@ import java.util.Map;
 import static net.anawesomguy.intelfix.IntelFix.*;
 
 public final class IntelFixPlugin implements IFMLLoadingPlugin {
+    static {
+        @SuppressWarnings("unused")
+        Class<?> stupidClassLoadingIssueSoIHaveToInitializeTheClassEarly = IntelFix.class;
+    }
+
     @Deprecated
     @Override
     public String[] getLibraryRequestClass() {
@@ -29,7 +34,7 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
 
     @Override
     public String getSetupClass() {
-        return "net.anawesomguy.intelfix.IntelFixSetup";
+        return null;
     }
 
     @Override
