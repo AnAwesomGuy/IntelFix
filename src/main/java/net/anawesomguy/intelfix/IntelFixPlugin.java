@@ -56,6 +56,10 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
         isDeobfEnv = !(Boolean)map.get("runtimeDeobfuscationEnabled");
     }
 
+    public String getAccessTransformerClass() {
+        return null;
+    }
+
     public static boolean useLegacy() {
         return useLegacy;
     }
