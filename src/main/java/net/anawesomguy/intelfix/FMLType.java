@@ -13,11 +13,13 @@ public enum FMLType {
         return this != NEW_FML;
     }
 
-    public static final FMLType CURRENT;
+    static FMLType CURRENT;
 
-    static {
+    public static FMLType getCurrent() {
+        if (CURRENT != null)
+            return CURRENT;
         // IClassTransformer -> old fml
-        // IFMLLoadingPlugin -> "new" fml
+        // FMLDeobfuscatingRemapper -> "new" fml
         // neither -> no fml
         FMLType fmlType;
         try {
@@ -25,13 +27,14 @@ public enum FMLType {
             fmlType = FMLType.OLD_FML;
         } catch (ClassNotFoundException e) {
             try {
-                Class.forName("cpw.mods.fml.relauncher.IFMLLoadingPlugin");
+                Class.forName("cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper",
+                              false, FMLType.class.getClassLoader()); // dont init and break stuff
                 Class.forName("net.minecraft.launchwrapper.IClassTransformer");
                 fmlType = FMLType.NEW_FML;
             } catch (ClassNotFoundException ex) {
                 fmlType = FMLType.NO_FML;
             }
         }
-        CURRENT = fmlType;
+        return CURRENT = fmlType;
     }
 }

@@ -1,16 +1,27 @@
 package net.anawesomguy.intelfix;
 
-import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper;
 import cpw.mods.fml.relauncher.FMLInjectionData;
+import cpw.mods.fml.relauncher.FMLRelaunchLog;
 import net.minecraft.launchwrapper.Launch;
+import org.lwjgl.opengl.GL13;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
@@ -18,24 +29,24 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static org.objectweb.asm.Opcodes.*;
+
 public final class IntelFix {
     public static final Logger LOGGER = Logger.getLogger("IntelFix");
 
     static {
         // log level is either configured by fml or through the property `intelfix.loglevel`
         try {
-            LOGGER.setParent(FMLLog.getLogger());
+            LOGGER.setParent(FMLRelaunchLog.log.getLogger());
         } catch (LinkageError e) {
             Level level;
             try {
-                level = Level.parse(System.getProperty("intelfix.loglevel"));
-            } catch (RuntimeException ex) {
+                level = Level.parse(System.getProperty("intelfix.loglevel", "INFO"));
+            } catch (IllegalArgumentException ex) {
                 level = Level.INFO;
             }
             LOGGER.setLevel(level);
         }
-
-        loadConfig();
     }
 
     static File configFile;
@@ -46,12 +57,15 @@ public final class IntelFix {
     static boolean obfuscatedNames;
     static boolean useLegacy;
 
-    private IntelFix() {
-    }
-
     // properties: injected_class, injected_method, gl_helper_class, setClientActiveTexture, obfuscated_names, use_legacy
     static void loadConfig() {
-        LOGGER.fine("Initializing IntelFixSetup from " + (modFile == null ? modFile = IntelFix.class.getProtectionDomain().getCodeSource().getLocation().getPath() : modFile));
+        LOGGER.log(Level.FINER,
+                   "Initializing {0} from '{1}'",
+                   new Object[]{
+                       IntelFix.class.getName(),
+                       (modFile == null ?
+                            modFile = IntelFix.class.getProtectionDomain().getCodeSource().getLocation().getPath() :
+                            modFile)});
 
         // read config (honestly even i kinda forgot how this works but if it works, it works. never touching this again lol.)
         Properties config = new Properties();
@@ -105,7 +119,7 @@ public final class IntelFix {
                                 }
                         }
                     } else {
-                        LOGGER.log(Level.INFO, "Found bad config value \"{0}\"", key);
+                        LOGGER.log(Level.INFO, "Found bad config value '{0}'", key);
                         config.remove(key);
                     }
                 }
@@ -127,6 +141,8 @@ public final class IntelFix {
                 config.setProperty("setClientActiveTexture", "");
                 config.setProperty("obfuscated_names", "");
                 config.setProperty("use_legacy", "false");
+                //noinspection ResultOfMethodCallIgnored
+                file.getParentFile().mkdirs();
                 config.store(new FileWriter(file), comment);
             }
         } catch (IOException e) {
@@ -134,11 +150,13 @@ public final class IntelFix {
                                      "\", will use defaults!", e);
         }
 
+        FMLType fmlType = FMLType.getCurrent();
+
         // set config values (adjusting to the defaults)
         IntelFix.useLegacy = useLegacy;
 
         boolean obfNames;
-        if (FMLType.CURRENT.cannotDeobfuscate()) {
+        if (fmlType.cannotDeobfuscate()) {
             obfNames = true;
             if (Boolean.FALSE.equals(obfuscatedNames)) // null-safe !obfuscatedNames
                 LOGGER.warning(
@@ -154,14 +172,16 @@ public final class IntelFix {
         IntelFix.glHelperClass = glHelperClass != null ? glHelperClass.replace('.', '/') : glHelperClass;
 
         IntelFix.injectedClass = injectedClass.isEmpty() ?
-            (useLegacy ? IntelFix.glHelperClass.replace('/', '.') : maybeUnmap("net.minecraft.client.renderer.Tessellator", obfNames)) :
+            (useLegacy ?
+                 IntelFix.glHelperClass.replace('/', '.') :
+                 maybeUnmap("net.minecraft.client.renderer.Tessellator", obfNames)) :
             injectedClass;
 
         method:
         if (injectedMethod.isEmpty()) {
             if (obfNames) {
-                if (FMLType.CURRENT.cannotDeobfuscate()) {
-                    injectedMethod = useLegacy ? null : "a(I)V";
+                if (fmlType.cannotDeobfuscate()) {
+                    injectedMethod = null;
                     break method;
                 }
                 LOGGER.severe("Cannot set `obfuscated_names` without also specifying a method! This mod will not function!");
@@ -175,20 +195,21 @@ public final class IntelFix {
         clientTexture:
         if (setClientTexture.isEmpty()) {
             if (obfNames) {
-                if (FMLType.CURRENT.cannotDeobfuscate()) {
+                if (fmlType.cannotDeobfuscate()) {
                     setClientTexture = null;
                     break clientTexture;
                 }
-                LOGGER.severe("Cannot set `obfuscated_names` without also specifying `setClientActiveTexture`! This mod will not function!");
+                LOGGER.severe(
+                    "Cannot set `obfuscated_names` without also specifying `setClientActiveTexture`! This mod will not function!");
             }
             setClientTexture = deobfEnv ? "setClientActiveTexture" : "func_77472_b";
         }
         IntelFix.setClientTexture = setClientTexture;
 
-        LOGGER.finer("Config values read, parsed, and stored!");
-        LOGGER.log(Level.FINER,
+        LOGGER.fine("Config values read, parsed, and stored!");
+        LOGGER.log(Level.FINE,
                    "use_legacy: {0}, injected_class: {1}, injected_method: {2}, gl_helper_class: {3}, setClientActiveTexture: {4}, obfuscated_names: {5} (null means default and undetermined)",
-                   new Object[]{useLegacy, IntelFix.injectedClass, IntelFix.injectedMethod, IntelFix.glHelperClass, IntelFix.setClientTexture, obfuscatedNames});
+                   new Object[]{useLegacy, IntelFix.injectedClass, IntelFix.injectedMethod, IntelFix.glHelperClass, IntelFix.setClientTexture, obfNames});
     }
 
     private static File findConfigFile() {
@@ -246,14 +267,81 @@ public final class IntelFix {
 
     private static String maybeUnmap(String clazz, boolean obfuscatedNames) {
         if (!deobfEnv && obfuscatedNames) {
-            if (FMLType.CURRENT.cannotDeobfuscate())
+            if (FMLType.getCurrent().cannotDeobfuscate())
                 return null;
             String unmapped = FMLDeobfuscatingRemapper.INSTANCE.unmap(clazz);
-            LOGGER.log(Level.FINER, "Unmapped class \"{0}\" to \"{1}\"", new Object[]{clazz, unmapped});
+            LOGGER.log(Level.FINER, "Unmapped class '{0}' to '{1}'", new Object[]{clazz, unmapped});
             return unmapped;
         }
 
         return clazz;
+    }
+
+    private static final String ILLEGAL_STATE_EX = "java/lang/IllegalStateException";
+
+    public static byte[] findAndPatch(String name, byte[] bytes) {
+        if (injectedClass != null && !injectedClass.equals(name))
+            return bytes;
+
+        ClassNode clazz = new ClassNode();
+        ClassReader reader = new ClassReader(bytes);
+        reader.accept(clazz, 0);
+
+        if (!"java/lang/Object".equals(clazz.superName) || clazz.access != 0x0021 /*ACC_PUBLIC and ACC_SUPER*/)
+            return bytes;
+
+        MethodNode drawNode = null;
+        String exceptionString = "Not tesselating!";
+        List<MethodNode> methods = clazz.methods;
+        for (MethodNode method : methods) {
+            if (!method.exceptions.isEmpty() || !Modifier.isPublic(method.access) || Modifier.isStatic(method.access) ||
+                "<init>".equals(method.name))
+                continue; // skip all methods with exceptions || non-public || static || constructors
+            if (drawNode == null) {
+                if (!"()V".equals(method.desc) && !"()I".equals(method.desc))
+                    break; // draw ("Not tesselating!") is always the first public instance method with no args and returns int or void
+            } else if (!"(I)V".equals(method.desc))
+                continue; // startDrawing ("Already tesselating!") always take an int and returns void
+            // check for:
+            // NEW java/lang/IllegalStateException
+            // DUP
+            // LDC "Not tesselating!" and then "Already tesselating!" (the check runs twice to be extra sure it's the right class)
+            // INVOKESPECIAL java/lang/IllegalStateException <init> (Ljava/lang/String;)V
+            // ATHROW
+            AbstractInsnNode[] nodes = method.instructions.toArray();
+            for (AbstractInsnNode node : nodes) {
+                AbstractInsnNode insn = node;
+                if ( // i tried my best to make it readable please dont kill me
+                    (insn instanceof TypeInsnNode &&
+                     insn.getOpcode() == NEW &&
+                     ILLEGAL_STATE_EX.equals(((TypeInsnNode)insn).desc)) &&
+                    ((insn = insn.getNext()) instanceof InsnNode &&
+                     insn.getOpcode() == DUP) &&
+                    ((insn = insn.getNext()) instanceof LdcInsnNode &&
+                     exceptionString.equals(((LdcInsnNode)insn).cst)) &&
+                    ((insn = insn.getNext()) instanceof MethodInsnNode &&
+                     insn.getOpcode() == INVOKESPECIAL &&
+                     ILLEGAL_STATE_EX.equals(((MethodInsnNode)insn).name) &&
+                     "<init>".equals(((MethodInsnNode)insn).owner) &&
+                     "(Ljava/lang/String;)V".equals(((MethodInsnNode)insn).desc)) &&
+                    ((insn = insn.getNext()) instanceof InsnNode &&
+                     insn.getOpcode() == ATHROW)
+                ) {
+                    if (drawNode == null) {
+                        drawNode = method;
+                        exceptionString = "Already tesselating!";
+                    } else {
+                        LOGGER.log(Level.FINE, "Injecting patch into '{0}' in '{1}'", new Object[]{drawNode.name, name});
+                        drawNode.instructions.insert(new LdcInsnNode(GL13.GL_TEXTURE0));
+                        drawNode.instructions.insert(new LdcInsnNode(GL13.GL_TEXTURE0));
+                        ClassWriter writer = new ClassWriter(reader, 0);
+                        clazz.accept(writer);
+                        return writer.toByteArray();
+                    }
+                }
+            }
+        }
+        return bytes;
     }
 
     //region // getters
@@ -265,6 +353,8 @@ public final class IntelFix {
     public static boolean obfuscatedNames() { return obfuscatedNames; }
     public static boolean useLegacy() { return useLegacy; }
     public static File configFile() { return configFile; }
+
+    private IntelFix() {}
     //@formatter:on
     //endregion
 }

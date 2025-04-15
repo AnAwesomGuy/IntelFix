@@ -42,12 +42,15 @@ dependencies {
     include compileOnly('org.ow2.asm:asm-tree:9.7.1')
 
     compileOnly(sourceSets.fake.compileClasspath + sourceSets.fake.output)
+
+    modules.module('org.ow2.asm:asm-all') {
+        replacedBy('org.ow2.asm:asm-debug-all')
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.with {
-        compilerArgs << '-g:none'
-        compilerArgs << '-Xlint:-options'
+//        compilerArgs.addAll '-g:none',  '-Xlint:-options'
         release = 6
     }
 }
@@ -57,7 +60,7 @@ jar {
     from 'LICENSE'
     manifest.attributes([
             "FMLCorePlugin": 'net.anawesomguy.intelfix.IntelFixPlugin',
-            "Premain-Class": 'net.anawesomguy.intelfix.IntelFixPatcher$JA'
+            "Premain-Class": 'net.anawesomguy.intelfix.IntelFixAgent'
     ])
 }
 
