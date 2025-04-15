@@ -1,7 +1,7 @@
 package net.anawesomguy.intelfix;
 
-import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper;
+import cpw.mods.fml.relauncher.FMLRelaunchLog;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 
 import java.util.Map;
@@ -13,7 +13,17 @@ public final class IntelFixPlugin implements IFMLLoadingPlugin {
     static boolean isDeobfEnv;
 
     static {
-        LOGGER.setParent(FMLLog.getLogger());
+        try {
+            LOGGER.setParent(FMLRelaunchLog.log.getLogger());
+        } catch (LinkageError e) {
+            Level level;
+            try {
+                level = Level.parse(System.getProperty("intelfix.loglevel", "INFO"));
+            } catch (IllegalArgumentException ex) {
+                level = Level.INFO;
+            }
+            LOGGER.setLevel(level);
+        }
     }
 
     static String injectedClass, injectedMethod, glHelperClass, setClientTexture;
