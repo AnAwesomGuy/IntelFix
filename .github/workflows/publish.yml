@@ -35,7 +35,7 @@ jobs:
       - id: values
         run: |
           echo -e "BODY=${{ inputs.release_body }}" >> $GITHUB_OUTPUT
-          echo "TAG=$( ls -p build/libs/ | grep -v / | head -1 | sed -e 's/\(.*\)\..*/\1/' )" >> $GITHUB_OUTPUT
+          echo "TAG=$( ls -p build/libs/ | grep -Po "^[^\/][\w-]+-[0-9\.]+\w*(?=[\w-]*\.[^.]*$)" | head -1 )" >> $GITHUB_OUTPUT
         # wtf did i just write up there
       - name: create release
         uses: svenstaro/upload-release-action@v2
